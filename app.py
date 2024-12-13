@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import io
@@ -6,7 +5,7 @@ import io
 def validate_csv(df):
     expected_columns = [
         'Paese',
-        '$ IVA applicata',
+        '% IVA applicata',  # Modificato da '$ IVA applicata'
         'Rate Name',
         'Totale vendite lordo',
         'Totale netto prodotti',
@@ -21,9 +20,22 @@ def process_csv(df):
     # Rimuove la colonna Rate Name
     df = df.drop('Rate Name', axis=1)
     
+    # Gestisce i numeri convertendo le virgole in punti
+    numeric_columns = [
+        'Totale vendite lordo',
+        'Totale netto prodotti',
+        'Totale netto spedizioni',
+        'Totale IVA prodotti',
+        'Totale IVA spedizioni',
+        'Totale IVA'
+    ]
+    
+    for col in numeric_columns:
+        df[col] = df[col].str.replace(',', '.').astype(float)
+    
     # Raggruppa per paese e calcola le somme
     grouped = df.groupby('Paese').agg({
-        '$ IVA applicata': 'first',  # Prende solo il primo valore
+        '% IVA applicata': 'first',  # Prende solo il primo valore
         'Totale vendite lordo': 'sum',
         'Totale netto prodotti': 'sum',
         'Totale netto spedizioni': 'sum',
@@ -31,6 +43,10 @@ def process_csv(df):
         'Totale IVA spedizioni': 'sum',
         'Totale IVA': 'sum'
     }).reset_index()
+    
+    # Formatta i numeri con la virgola come separatore decimale
+    for col in numeric_columns:
+        grouped[col] = grouped[col].round(2).apply(lambda x: f"{x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
     
     return grouped
 
@@ -46,7 +62,7 @@ st.write("""
 1. Carica un file CSV che usa ';' come separatore
 2. Il file deve contenere le seguenti colonne:
    - Paese
-   - $ IVA applicata
+   - % IVA applicata
    - Rate Name
    - Totale vendite lordo
    - Totale netto prodotti
@@ -66,7 +82,7 @@ if uploaded_file is not None:
         
         # Valida la struttura del CSV
         if not validate_csv(df):
-            st.error("Le colonne del CSV non corrispondono al formato atteso!")
+            st.error(f"Le colonne del CSV non corrispondono al formato atteso!\nColonne trovate: {list(df.columns)}\nColonne attese: {expected_columns}")
         else:
             # Processa il file
             result_df = process_csv(df)
@@ -86,7 +102,4 @@ if uploaded_file is not None:
             )
             
     except Exception as e:
-        if "sep=',' " in str(e):
-            st.error("Il file CSV deve utilizzare ; come separatore!")
-        else:
-            st.error(f"Si è verificato un errore durante l'elaborazione: {str(e)}")
+        st.error(f"Si è verificato un errore durante l'elaborazione: {str(e)}")
