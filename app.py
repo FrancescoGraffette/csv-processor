@@ -5,7 +5,7 @@ import io
 def validate_csv(df):
     expected_columns = [
         'Paese',
-        '% IVA applicata',  # Modificato da '$ IVA applicata'
+        '% IVA applicata',
         'Rate Name',
         'Totale vendite lordo',
         'Totale netto prodotti',
@@ -16,11 +16,18 @@ def validate_csv(df):
     ]
     return list(df.columns) == expected_columns
 
+def convert_to_float(value):
+    if isinstance(value, str):
+        # Se è una stringa, sostituisce la virgola col punto
+        return float(value.replace(',', '.'))
+    # Se è già un numero, lo restituisce così com'è
+    return float(value)
+
 def process_csv(df):
     # Rimuove la colonna Rate Name
     df = df.drop('Rate Name', axis=1)
     
-    # Gestisce i numeri convertendo le virgole in punti
+    # Lista delle colonne numeriche
     numeric_columns = [
         'Totale vendite lordo',
         'Totale netto prodotti',
@@ -30,12 +37,13 @@ def process_csv(df):
         'Totale IVA'
     ]
     
+    # Converte i valori numerici
     for col in numeric_columns:
-        df[col] = df[col].str.replace(',', '.').astype(float)
+        df[col] = df[col].apply(convert_to_float)
     
     # Raggruppa per paese e calcola le somme
     grouped = df.groupby('Paese').agg({
-        '% IVA applicata': 'first',  # Prende solo il primo valore
+        '% IVA applicata': 'first',
         'Totale vendite lordo': 'sum',
         'Totale netto prodotti': 'sum',
         'Totale netto spedizioni': 'sum',
@@ -82,7 +90,7 @@ if uploaded_file is not None:
         
         # Valida la struttura del CSV
         if not validate_csv(df):
-            st.error(f"Le colonne del CSV non corrispondono al formato atteso!\nColonne trovate: {list(df.columns)}\nColonne attese: {expected_columns}")
+            st.error(f"Le colonne del CSV non corrispondono al formato atteso!\nColonne trovate: {list(df.columns)}\nColonne attese: {['Paese', '% IVA applicata', 'Rate Name', 'Totale vendite lordo', 'Totale netto prodotti', 'Totale netto spedizioni', 'Totale IVA prodotti', 'Totale IVA spedizioni', 'Totale IVA']}")
         else:
             # Processa il file
             result_df = process_csv(df)
@@ -103,3 +111,5 @@ if uploaded_file is not None:
             
     except Exception as e:
         st.error(f"Si è verificato un errore durante l'elaborazione: {str(e)}")
+        st.write("Contenuto del DataFrame:")
+        st.write(df.head())  # Mostra le prime righe per debug
